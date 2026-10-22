@@ -24,18 +24,29 @@ def derivada_aceleracion_resorte(x: float) -> float:
     return -1.0
 
 
-def newton_raphson(G, derivada_G, z0: float, tolerancia: float = 1e-12, max_iter: int = 50) -> float:
-    """Busca una raíz de ``G`` partiendo de ``z0``.
+def newton_raphson(
+    G,
+    derivada_G,
+    z0: float,
+    tolerancia: float = 1e-12,
+    max_iter: int = 50
+) -> float:
 
-    Cada iteración reemplaza ``G`` por su recta tangente y toma el cero de esa
-    recta: ``z ← z - G(z) / G'(z)``. Se detiene cuando el residuo ``|G(z)|`` es
-    menor que ``tolerancia``: una corrección pequeña no alcanza si el residuo
-    sigue siendo grande. Si la derivada se anula o no converge en ``max_iter``
-    iteraciones, lanza ``ArithmeticError``: nunca devuelve en silencio un valor
-    que no convergió.
-    """
+    z = z0
 
-    raise NotImplementedError("completar Newton–Raphson")
+    for _ in range(max_iter):
+
+        if abs(G(z)) < tolerancia:
+            return z
+
+        dG = derivada_G(z)
+
+        if dG == 0:
+            raise ArithmeticError("La derivada se anuló")
+
+        z = z - G(z) / dG
+
+    raise ArithmeticError("Newton-Raphson no convergió")
 
 
 def integrar_euler_explicito(
@@ -55,7 +66,19 @@ def integrar_euler_explicito(
     condición inicial, por lo que tienen ``pasos + 1`` elementos.
     """
 
-    raise NotImplementedError("completar Euler explícito")
+    tiempos = np.arange(pasos + 1) * dt
+    estados = np.zeros((pasos + 1, 2))
+
+    estados[0] = estado_inicial
+
+    for n in range(pasos):
+        x = estados[n, 0]
+        v = estados[n, 1]
+
+        estados[n + 1, 0] = x + dt * v
+        estados[n + 1, 1] = v + dt * aceleracion(x)
+
+    return tiempos, estados
 
 
 def integrar_euler_implicito(
@@ -65,25 +88,27 @@ def integrar_euler_implicito(
     aceleracion=aceleracion_resorte,
     derivada_aceleracion=derivada_aceleracion_resorte,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Integra ``x' = v``, ``v' = a(x)`` con Euler implícito.
+    """Integra ``x' = v``, ``v' = a(x)`` con Euler implícito."""
 
-    Cada paso usa la pendiente al **final** del intervalo:
+    tiempos = np.arange(pasos + 1) * dt
+    estados = np.zeros((pasos + 1, 2))
 
-        x[n+1] = x[n] + dt v[n+1]
-        v[n+1] = v[n] + dt a(x[n+1])
+    estados[0] = estado_inicial
 
-    Reemplazando la segunda ecuación en la primera queda una sola ecuación
-    para ``z = x[n+1]``:
+    for n in range(pasos):
+        x = estados[n, 0]
+        v = estados[n, 1]
 
-        G(z) = z - x[n] - dt v[n] - dt² a(z) = 0,
+        G = lambda z: z - x - dt * v - dt**2 * aceleracion(z)
+        derivada_G = lambda z: 1 - dt**2 * derivada_aceleracion(z)
 
-    que se resuelve con ``newton_raphson`` partiendo de ``z = x[n]``. Después,
-    ``v[n+1]`` sale de la segunda ecuación.
+        x_nuevo = newton_raphson(G, derivada_G, x)
+        v_nuevo = v + dt * aceleracion(x_nuevo)
 
-    Devuelve tiempos y estados, con ``pasos + 1`` elementos cada uno.
-    """
+        estados[n + 1, 0] = x_nuevo
+        estados[n + 1, 1] = v_nuevo
 
-    raise NotImplementedError("completar Euler implícito")
+    return tiempos, estados
 
 
 def solucion_exacta(tiempos: np.ndarray, estado_inicial: np.ndarray) -> np.ndarray:
